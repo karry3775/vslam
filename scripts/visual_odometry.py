@@ -35,6 +35,7 @@ def main():
     visual_odometry.setVideoStreamFilePath(args.input_video_file_path)
 
     # sanity check
+    logging.info("The file for the videostream is: {}".format(visual_odometry.video_stream_file))
 
 
 if __name__ == "__main__":
