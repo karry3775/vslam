@@ -8,7 +8,28 @@ import rospy
 import cv2
 import argparse
 import logging
+import numpy as np
 
+import pykitti # for parsing kitti data set
+# source: https://github.com/utiasSTARS/pykitti
+
+class KittiParser():
+    # A class built on top of pykitti
+    def __init__(self, base_dir, date, drive):
+        self.base_dir = base_dir
+        self.date = date
+        self.drive = drive
+
+    def setAllKittiData(self):
+        self.data = pykitti.raw(self.base_dir, self.date, self.drive, frames=(0, 50, 0))
+        point_velo = np.array([0.0, 0.0, 0.0, 1.0])
+        self.point_cam0 = self.data.calib.T_cam0_velo.dot(point_velo)
+        point_imu = np.array([0, 0, 0, 1])
+        self.point_w = [o.T_w_imu.dot(point_imu) for o in self.data.oxts]
+
+    def showImages(self):
+        for cam0_image in self.data.cam0:
+            cv2.imshow(camo_image)
 
 class VisualOdometry():
 
