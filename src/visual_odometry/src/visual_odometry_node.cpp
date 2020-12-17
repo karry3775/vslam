@@ -2,7 +2,6 @@
 #include <visual_odometry/VisualOdometry.h>
 
 int main (int argc, char **argv) {
-
     ros::init(argc, argv, "visual_odometry_node");
 
     ros::NodeHandle nh;

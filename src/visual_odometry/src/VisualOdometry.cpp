@@ -7,10 +7,41 @@
 namespace vslam{
 
 
+
+// code to for orb feature detection
+// sources : https://stackoverflow.com/questions/46199558/orb-feature-matching-with-flann-in-c
+//    	   : https://stackoverflow.com/questions/56241536/opencv-fastbrief-how-to-draw-keypoints-with-drawmatchesflagsdraw-rich-keyp
+
+void VisualOdometry::detectORBFeatures(cv::Mat& img) {
+	
+	// create the descriptors and keypoints
+	std::vector<cv::KeyPoint> keypoints;
+	cv::Mat descriptor;
+
+	cv::Ptr<cv::ORB> detector = cv::ORB::create();
+	std::vector<cv::DMatch> matches;
+	cv::Ptr<cv::DescriptorMatcher> matcher = cv::DescriptorMatcher::create("BruteForce-Hamming");
+
+	detector->detect(img, keypoints, descriptor);
+
+	for (size_t i = 0; i < keypoints.size(); ++i) {
+        LOG(INFO)<< "ORB Keypoint #:" << i
+                 << " Size " << keypoints[i].size << " Angle " << keypoints[i].angle 
+				 << " Response " << keypoints[i].response << " Octave " << keypoints[i].octave;
+    }
+
+	// Draw ORB Keypoints
+	cv::Mat output;
+	cv::drawKeypoints(img, keypoints, output, cv::Scalar::all(-1), cv::DrawMatchesFlags::DRAW_RICH_KEYPOINTS);
+    cv::imshow("Output", output);
+    // cv::waitKey(0);
+
+	
+}
  // source for reading files : https://stackoverflow.com/questions/31346132/how-to-get-all-images-in-folder-using-c
  // [DO NOT USE FILESYSTEM: NASTY GOTCHA!]
  //
- void VisualOdometry::readImages() {
+void VisualOdometry::readImages() {
 	std::vector<cv::String> fn;
 	cv::glob(this->dataDir + "*.png", fn, false);
 
@@ -23,9 +54,17 @@ namespace vslam{
 			LOG(INFO) << "File not found at : "<< fn[i] << std::endl;
 		}		
 		else{
-			cv::imshow("Display", img);
+			cv::imshow("Original", img);
+			// sanity check for detectORBFeatures
+			this->detectORBFeatures(img);
+			int key = cv::waitKey(1);	
+			if(key == 27) {
+				// pushed the escape key
+				LOG(INFO) << "Quitting on Escape key!" << std::endl;
+				break;
+			}
 		}
-		cv::waitKey(1);
+		 
 	}
 
  
