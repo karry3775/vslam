@@ -7,7 +7,11 @@
 // general
 #include <boost/program_options.hpp>
 #include <glog/logging.h>
+#include <gflags/gflags.h>
 #include <string>
+#include <exception>
+#include <sstream>
+#include <vector>
 
 // Opencv related headers
 #include <opencv2/core.hpp>
@@ -15,6 +19,10 @@
 #include <opencv2/highgui.hpp>
 #include <opencv2/xfeatures2d.hpp>
 #include <opencv2/features2d.hpp>
+#include <opencv2/imgproc.hpp> // for drawing circles, lines etc.
+
+// some typdefs
+typedef std::vector<cv::KeyPoint> KeyPointsVector;
 
 namespace vslam{
 
@@ -26,9 +34,11 @@ private:
 public:
   // Default constructor
 	VisualOdometry();
-	VisualOdometry(char** argv); 
+	VisualOdometry(int argc, char** argv); 
 	void readImages();
-    void detectORBFeatures(cv::Mat& img);		  					
+    std::pair<KeyPointsVector, cv::Mat> detectORBFeatures(const std::string&, const cv::Mat&);
+	void matchORBFeatures(const cv::Mat&, const cv::Mat&);
+
 	std::string dataDir;
 	
 };

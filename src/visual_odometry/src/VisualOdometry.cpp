@@ -1,43 +1,79 @@
 #include <visual_odometry/VisualOdometry.h>
-#include <experimental/filesystem> // to read files
-#include <exception>
-#include <sstream>
-#include <vector>
+
+DEFINE_bool(show_individual_img_features, true,
+			"A boolean flag that decides whether to show features in detectORBFeatures");
 
 namespace vslam{
-
-
-
-// code to for orb feature detection
+// code for orb feature detection
 // sources : https://stackoverflow.com/questions/46199558/orb-feature-matching-with-flann-in-c
 //    	   : https://stackoverflow.com/questions/56241536/opencv-fastbrief-how-to-draw-keypoints-with-drawmatchesflagsdraw-rich-keyp
 
-void VisualOdometry::detectORBFeatures(cv::Mat& img) {
+// This function takes in a single image and overlays it with orb features
+std::pair<KeyPointsVector, cv::Mat> VisualOdometry::detectORBFeatures(const std::string& frame, const cv::Mat& img) {
 	
 	// create the descriptors and keypoints
-	std::vector<cv::KeyPoint> keypoints;
+	KeyPointsVector keypoints;
 	cv::Mat descriptor;
 
 	cv::Ptr<cv::ORB> detector = cv::ORB::create();
 	std::vector<cv::DMatch> matches;
 	cv::Ptr<cv::DescriptorMatcher> matcher = cv::DescriptorMatcher::create("BruteForce-Hamming");
 
-	detector->detect(img, keypoints, descriptor);
-
-	for (size_t i = 0; i < keypoints.size(); ++i) {
-        LOG(INFO)<< "ORB Keypoint #:" << i
-                 << " Size " << keypoints[i].size << " Angle " << keypoints[i].angle 
-				 << " Response " << keypoints[i].response << " Octave " << keypoints[i].octave;
-    }
-
-	// Draw ORB Keypoints
-	cv::Mat output;
-	cv::drawKeypoints(img, keypoints, output, cv::Scalar::all(-1), cv::DrawMatchesFlags::DRAW_RICH_KEYPOINTS);
-    cv::imshow("Output", output);
-    // cv::waitKey(0);
-
+	// detector->detectAndCompute(img, keypoints, descriptor);
+	detector->detect(img, keypoints);
+	cv::Ptr<cv::DescriptorExtractor> extractor = cv::ORB::create();
+	extractor->compute(img, keypoints, descriptor);
 	
+	if(FLAGS_show_individual_img_features) {
+		// Draw ORB Keypoints
+		cv::Mat output;
+		cv::drawKeypoints(img, keypoints, output, cv::Scalar::all(-1), cv::DrawMatchesFlags::DRAW_RICH_KEYPOINTS);
+		cv::imshow(frame, output);
+	}
+
+	std::pair<KeyPointsVector, cv::Mat> keypoint_descriptor_pair = std::make_pair(keypoints, descriptor);
+
+	return keypoint_descriptor_pair;
 }
+
+void VisualOdometry::matchORBFeatures(const cv::Mat& img1, const cv::Mat& img2) {
+
+	std::pair<KeyPointsVector, cv::Mat> keypoint_descriptor_pair1 = this->detectORBFeatures("prev_frame",img1);
+	std::pair<KeyPointsVector, cv::Mat> keypoint_descriptor_pair2 = this->detectORBFeatures("cur_frame",img2);
+
+	KeyPointsVector keypoints1 = keypoint_descriptor_pair1.first;
+	cv::Mat descriptors1 = keypoint_descriptor_pair1.second;
+	KeyPointsVector keypoints2 = keypoint_descriptor_pair2.first;
+	cv::Mat descriptors2 = keypoint_descriptor_pair2.second;
+
+
+	// matching descriptors
+	cv::BFMatcher matcher(cv::NORM_HAMMING, true); // changed from cv::NORM_L2, adding the crossCheck boolean
+	std::vector<cv::DMatch> matches;
+	matcher.match(descriptors1, descriptors2, matches);
+
+	// Apply the sift ratio test
+	std::vector<cv::DMatch> good_matches;
+	for(auto match : matches) {
+		if (matches[match.queryIdx].distance < 0.75 * matches[match.trainIdx].distance) {
+			good_matches.push_back(match);
+		}
+	 }
+	 
+	// draw the results
+	cv::namedWindow("matches", 1);
+	cv::Mat img_matches;
+	cv::drawMatches(img1, keypoints1, img2, keypoints2, matches, img_matches
+					, cv::Scalar::all(-1), cv::Scalar::all(-1), std::vector<char>() , cv::DrawMatchesFlags::NOT_DRAW_SINGLE_POINTS );
+	cv::imshow("matches", img_matches);
+
+	cv::namedWindow("good_matches", 1);
+	cv::drawMatches(img1, keypoints1, img2, keypoints2, good_matches, img_matches
+					, cv::Scalar::all(-1), cv::Scalar::all(-1), std::vector<char>() , cv::DrawMatchesFlags::NOT_DRAW_SINGLE_POINTS );
+	cv::imshow("good_matches", img_matches);
+
+}
+
  // source for reading files : https://stackoverflow.com/questions/31346132/how-to-get-all-images-in-folder-using-c
  // [DO NOT USE FILESYSTEM: NASTY GOTCHA!]
  //
@@ -47,16 +83,19 @@ void VisualOdometry::readImages() {
 
 	size_t count = fn.size();
 
-	for(size_t i=0; i < count; i++) {
 
-		cv::Mat img = cv::imread(fn[i]);
-		if(img.empty()) {
+	cv::Mat prev_img = cv::imread(fn[0]);
+
+	for(size_t i=1; i < count; i++) {
+
+		cv::Mat cur_img = cv::imread(fn[i]);
+		if(cur_img.empty()) {
 			LOG(INFO) << "File not found at : "<< fn[i] << std::endl;
 		}		
 		else{
-			cv::imshow("Original", img);
-			// sanity check for detectORBFeatures
-			this->detectORBFeatures(img);
+			cv::imshow("Original", cur_img);
+			// sanity check for matchORBFeatures
+			this->matchORBFeatures(prev_img, cur_img);
 			int key = cv::waitKey(1);	
 			if(key == 27) {
 				// pushed the escape key
@@ -64,18 +103,20 @@ void VisualOdometry::readImages() {
 				break;
 			}
 		}
+
+		prev_img = cur_img;
 		 
 	}
 
  
 }
 
-VisualOdometry::VisualOdometry(char** argv) {
+VisualOdometry::VisualOdometry(int argc, char** argv) {
 
 	// Initiate google logging
-	
     google::InitGoogleLogging(argv[0]);
 	FLAGS_logtostderr=1;
+	gflags::ParseCommandLineFlags(&argc, &argv, true);
 
 }
 

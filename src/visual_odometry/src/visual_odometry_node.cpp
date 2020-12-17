@@ -6,7 +6,7 @@ int main (int argc, char **argv) {
 
     ros::NodeHandle nh;
 
-    vslam::VisualOdometry* voObj = new vslam::VisualOdometry(argv); 
+    vslam::VisualOdometry* voObj = new vslam::VisualOdometry(argc, argv); 
 
     vslam::getCommandLineInformation(argc, argv, voObj);
 
