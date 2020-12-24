@@ -21,6 +21,9 @@ find_package(gflags 0.4.0 REQUIRED)
 # add boost
 find_package(Boost COMPONENTS program_options python REQUIRED)
 
+# add eigen
+find_package(Eigen3 3.3 REQUIRED NO_MODULE)
+
 # add pangolin
 find_package(Pangolin REQUIRED)
 
@@ -42,6 +45,7 @@ add_executable(${PROJECT_NAME}_node src/visual_odometry_node.cpp src/VisualOdome
 target_link_libraries(${PROJECT_NAME}_node ${catkin_LIBRARIES} 
                       ${OpenCV_LIBS} glog::glog gflags 
                       ${Boost_LIBRARIES}
-                      ${Pangolin_LIBRARIES})
+                      ${Pangolin_LIBRARIES}
+                      Eigen3::Eigen)
 
 
